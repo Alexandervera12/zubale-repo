@@ -554,6 +554,30 @@
       color: var(--zubale-blue-deeper);
       line-height: 1.5;
     }
+
+    /* ── SKELETON LOADING ── */
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position:  600px 0; }
+    }
+
+    .skeleton-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 22px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+
+    .skeleton-block {
+      border-radius: 8px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e8ff 50%, #f0f0f0 75%);
+      background-size: 600px 100%;
+      animation: shimmer 1.4s infinite linear;
+    }
   </style>
 </head>
 <body>
@@ -665,7 +689,7 @@ function Modal({ store, role, onClose, onSubmit }) {
           <p className="input-hint">Teléfono registrado en tu aplicación Zubale</p>
 
           <div className="phone-input-wrap">
-            <span className="phone-prefix">569</span>
+            <span className="phone-prefix">🇨🇱 569</span>
             <input
               ref={inputRef}
               type="tel"
@@ -705,21 +729,47 @@ function Toast({ store }) {
   );
 }
 
+/* ─── CACHÉ EN MEMORIA (dura lo que dura la sesión) ─────────────── */
+let _storesCache = null;
+
+/* ─── SKELETON de 8 tarjetas mientras carga ─────────────────────── */
+function SkeletonGrid() {
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"center", marginBottom:6 }}>
+        <div className="skeleton-block" style={{ width:220, height:22, borderRadius:6 }} />
+        <div className="skeleton-block" style={{ width:80, height:22, borderRadius:99, marginLeft:10 }} />
+      </div>
+      <div className="skeleton-block" style={{ width:280, height:16, borderRadius:6, marginBottom:24 }} />
+      <div className="cards-grid">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="skeleton-card">
+            <div className="skeleton-block" style={{ width:56, height:56, borderRadius:14 }} />
+            <div className="skeleton-block" style={{ width:"80%", height:14, borderRadius:6 }} />
+            <div className="skeleton-block" style={{ width:"50%", height:12, borderRadius:6 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── APP PRINCIPAL ──────────────────────────────────────────────── */
 function App() {
-  const [role, setRole]         = useState("Picker");
-  const [selected, setSelected] = useState(null);
-  const [toast, setToast]       = useState(null);
-  const [allStores, setAllStores] = useState(null);  // null = cargando, {} = cargado
+  const [role, setRole]           = useState("Picker");
+  const [selected, setSelected]   = useState(null);
+  const [toast, setToast]         = useState(null);
+  const [allStores, setAllStores] = useState(_storesCache); // usa caché si existe
   const [loadError, setLoadError] = useState(false);
 
-  /* Cargar locales del sheet al montar */
+  /* Cargar locales — solo si no hay caché */
   useEffect(() => {
+    if (_storesCache) return; // ya tenemos datos, no vuelve a pedir
     fetch(GAS_URL + "?action=getLocales")
       .then(r => r.json())
       .then(data => {
         if (data.status === "ok") {
-          // data.locales = { Picker: { WALMART: ["Local1",...], ... }, ... }
+          _storesCache = data.locales; // guardar en caché
           setAllStores(data.locales);
         } else {
           setLoadError(true);
@@ -741,38 +791,11 @@ function App() {
     setTimeout(() => setToast(null), 10000);
   };
 
-  /* Estado de carga */
-  if (!allStores && !loadError) {
-    return (
-      <>
-        <Header />
-        <div className="empty" style={{ marginTop: 80 }}>
-          <div className="empty-icon">⏳</div>
-          <div className="empty-title">Cargando locales disponibles...</div>
-          <div className="empty-text">Estamos consultando la disponibilidad de hoy.</div>
-        </div>
-      </>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <>
-        <Header />
-        <div className="empty" style={{ marginTop: 80 }}>
-          <div className="empty-icon">⚠️</div>
-          <div className="empty-title">No pudimos cargar los locales</div>
-          <div className="empty-text">Revisá tu conexión e intentá recargar la página.</div>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <Header />
 
-      {/* HERO + ROLE SELECTOR */}
+      {/* HERO + ROLE SELECTOR — siempre visible de inmediato */}
       <section className="hero">
         <h1>Selecciona tu rol y local</h1>
         <p>Selecciona tu rol y escoge el local donde tenés disponibilidad de asistir hoy. ¡Confirmá con tu número y empezá a ganar!</p>
@@ -792,6 +815,22 @@ function App() {
 
       {/* CARDS */}
       <main className="main">
+
+        {/* Error */}
+        {loadError && (
+          <div className="empty">
+            <div className="empty-icon">⚠️</div>
+            <div className="empty-title">No pudimos cargar los locales</div>
+            <div className="empty-text">Revisá tu conexión e intentá recargar la página.</div>
+          </div>
+        )}
+
+        {/* Skeleton mientras carga */}
+        {!allStores && !loadError && <SkeletonGrid />}
+
+        {/* Contenido real */}
+        {allStores && (
+          <>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
           <span className="section-title">Locales disponibles para ti hoy</span>
           <span className="pill-count">📍 {totalLocales} {totalLocales === 1 ? "local" : "locales"}</span>
@@ -829,6 +868,8 @@ function App() {
             <div className="empty-text">Por ahora no hay salas disponibles para <strong>{role}</strong> hoy. Volvé a intentarlo más tarde.</div>
           </div>
         )}
+          </>
+        )}
       </main>
 
       <footer className="footer">
@@ -855,4 +896,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
