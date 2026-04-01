@@ -762,14 +762,14 @@ function App() {
   const [allStores, setAllStores] = useState(_storesCache); // usa caché si existe
   const [loadError, setLoadError] = useState(false);
 
-  /* Cargar locales — solo si no hay caché */
+
   useEffect(() => {
-    if (_storesCache) return; // ya tenemos datos, no vuelve a pedir
+    if (_storesCache) return; 
     fetch(GAS_URL + "?action=getLocales")
       .then(r => r.json())
       .then(data => {
         if (data.status === "ok") {
-          _storesCache = data.locales; // guardar en caché
+          _storesCache = data.locales; 
           setAllStores(data.locales);
         } else {
           setLoadError(true);
@@ -833,7 +833,6 @@ function App() {
           <>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
           <span className="section-title">Locales disponibles HOY</span>
-          <span className="pill-count">📍 {totalLocales} {totalLocales === 1 ? "local" : "locales"}</span>
         </div>
         <p className="section-sub">
           Seleccioná el local donde querés asistir como <strong>{role}</strong>.
